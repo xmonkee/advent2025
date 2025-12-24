@@ -6,6 +6,7 @@ import gleam/int
 import gleam/string
 import gary/array
 import gleam/list
+import gleam/order
 
 
 
@@ -47,5 +48,12 @@ pub fn unwrap(v: Result(a, b)) -> a {
 	case v {
 		Ok(a) -> a
 		Error(_) -> panic as "Tried to unwrap error"
+	}
+}
+
+pub fn string_equals(s1: String, s2: String) {
+	case string.compare(s1, s2) {
+		order.Eq -> True
+		_ -> False
 	}
 }

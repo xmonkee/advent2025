@@ -86,11 +86,8 @@ fn count_neighbors(a: A, row row: Int, col col: Int) {
 				let #(x, y) = nbor
 				let el = get_el(a, x, y)
 				case el { 
-					Ok(s) -> case string.compare(s, "@") {
-						order.Eq -> True // Count if neighbor is a roll
-						_ -> False
-					}
-					_ -> False // No neighbor, does not count
+					Ok(s) -> utils.string_equals(el, "@")
+					_			-> False // No neighbor, does not count
 				}
 			})
 		}
