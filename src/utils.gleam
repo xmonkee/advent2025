@@ -7,6 +7,7 @@ import gleam/string
 import gary/array
 import gleam/list
 import gleam/order
+import gleam/result
 
 
 
@@ -56,4 +57,8 @@ pub fn string_equals(s1: String, s2: String) {
 		order.Eq -> True
 		_ -> False
 	}
+}
+
+pub fn nillify_error(r) {
+	result.map_error(r, fn(_) { Nil })
 }
