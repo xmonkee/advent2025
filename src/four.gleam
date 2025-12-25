@@ -5,17 +5,6 @@ import gary/array
 import gleam/list
 import utils
 
-const input = "..@@.@@@@.
-@@@.@.@.@@
-@@@@@.@.@@
-@.@@@@..@.
-@@.@@@@.@@
-.@@@@@@@.@
-.@.@.@.@@@
-@.@@@.@@@@
-.@@@@@@@@.
-@.@.@@@.@."
-
 type A = gary.ErlangArray(gary.ErlangArray(String))
 
 pub fn main() {
