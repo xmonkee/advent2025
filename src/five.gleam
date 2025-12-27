@@ -65,14 +65,12 @@ fn merge_ranges(ranges, acc) {
 		[rn1, rn2, ..rns] -> { 
 			let #(l1, r1) = rn1
 			let #(l2, r2) = rn2
+			// ranges are sorted, so l1 <= l2
 			case l1, r1, l1, r2 {
-				// if rn1 and rn2 are disconnected, move rn1 to acc
+				// rn1 and rn2 are disconnected, move rn1 to acc
 				_,_,_,_ if l2 > r1 -> merge_ranges([rn2, ..rns], [rn1, ..acc])
-				// rn1 + rn2 become a single longer range
-				_,_,_,_ if r2 >= r1 -> merge_ranges([#(l1, r2), ..rns], acc)
-				// rn2 is completely subsumed by rn1
-				_,_,_,_ if r1 > r2 -> merge_ranges([#(l1, r1), ..rns], acc)
-				_,_,_,_ -> panic as "wut"
+				// rn1 and rn2 overlap, merge into single range
+				_,_,_,_ -> merge_ranges([#(l1, int.max(r1, r2)), ..rns], acc)
 			}
 		}
 	}
