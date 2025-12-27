@@ -20,7 +20,6 @@ const input = ".......S.......
 ..............."
 
 pub fn main() {
-  let input = utils.get_lines(7)
   let lines =
     input
     |> list.map(string.split(_, ""))
