@@ -20,9 +20,12 @@ const input = ".......S.......
 ..............."
 
 pub fn main() {
-  let lines =
-    input
-    |> list.map(string.split(_, ""))
+  //   let input = utils.get_input(7) |> string.drop_end(1)
+  let lines = input |> string.split("\n") |> list.map(string.split(_, ""))
+  echo solve(lines)
+}
+
+fn solve(lines) {
   let state = lines |> list.first() |> utils.unwrap() |> list.map(fn(_) { "." })
   echo fire(lines, state, 0)
 }

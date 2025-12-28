@@ -1,15 +1,14 @@
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
 import gleam/regexp
 import gleam/string
 import utils
 
-const input = "123 328  51 64
- 45 64  387 23
-  6 98  215 314
-*   +   *   +
-"
+// const input = "123 328  51 64
+//  45 64  387 23
+//   6 98  215 314
+// *   +   *   +
+// "
 
 pub fn main() {
   let input = utils.get_input(6)
