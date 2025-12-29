@@ -1,7 +1,6 @@
 import gleam/dict
 import gleam/int
 import gleam/list
-import gleam/pair
 import gleam/string
 import utils
 
@@ -39,27 +38,19 @@ type DPair =
 type Domains =
   dict.Dict(Point, Point)
 
-type RootCount =
-  dict.Dict(Point, Int)
-
-// Union-Find
-
 pub fn main() {
   let input = utils.get_input(8)
   let lines = input |> string.drop_end(1) |> string.split("\n")
   let points = list.map(lines, parse_points)
   let pairs = list.combination_pairs(points)
   let dpairs = list.map(pairs, fn(pair) { #(distance(pair), pair) })
-  let sorted = dpairs |> list.sort(compare_dpairs) |> list.take(1000)
+  let sorted = dpairs |> list.sort(compare_dpairs)
   let uf = points |> list.map(fn(p) { #(p, p) }) |> dict.from_list()
-  let joined = join_loop(sorted, uf)
-  let domain_sizes = count_members(points, joined)
-  let sorted =
-    domain_sizes |> dict.to_list() |> list.sort(compare_dsize) |> list.reverse()
-  echo sorted
-    |> list.take(3)
-    |> list.map(pair.second)
-    |> int.product()
+  let ldomains = list.length(points)
+  let last_pair = #(#(0, 0, 0), #(0, 0, 0))
+  let last_pair = join_while_disconnected(sorted, uf, ldomains, last_pair)
+  let #(#(x1, _, _), #(x2, _, _)) = last_pair
+  echo x1 * x2
 }
 
 fn parse_points(line) {
@@ -89,10 +80,23 @@ fn compare_dpairs(d1: DPair, d2: DPair) {
   }
 }
 
-fn join_loop(dpairs: List(DPair), acc: Domains) {
-  case dpairs {
-    [] -> acc
-    [#(_, #(p1, p2)), ..rest] -> join_loop(rest, union(acc, p1, p2))
+fn join_while_disconnected(
+  dpairs: List(DPair),
+  uf: Domains,
+  ldomains: Int,
+  last_pair: #(Point, Point),
+) {
+  case ldomains, dpairs {
+    1, _ -> last_pair
+    _, [] -> panic as "Ran out of pairs"
+    _, [#(_, #(p1, p2)), ..rest] -> {
+      let #(new_uf, was_joined) = union(uf, p1, p2)
+      let ldomains = case was_joined {
+        True -> ldomains - 1
+        False -> ldomains
+      }
+      join_while_disconnected(rest, new_uf, ldomains, #(p1, p2))
+    }
   }
 }
 
@@ -101,9 +105,10 @@ fn join_loop(dpairs: List(DPair), acc: Domains) {
 fn union(acc: Domains, p1: Point, p2: Point) {
   let #(root1, dist1) = find(acc, p1)
   let #(root2, dist2) = find(acc, p2)
-  case dist1, dist2 {
-    d1, d2 if d1 > d2 -> dict.insert(acc, root2, root1)
-    _, _ -> dict.insert(acc, root1, root2)
+  case root1, root2, dist1, dist2 {
+    r1, r2, _, _ if r1 == r2 -> #(acc, False)
+    r1, r2, d1, d2 if d1 > d2 -> #(dict.insert(acc, r2, r1), True)
+    r1, r2, _, _ -> #(dict.insert(acc, r1, r2), True)
   }
 }
 
@@ -116,30 +121,5 @@ fn find(acc: Domains, to_find: Point) -> #(Point, Int) {
       #(root, dist + 1)
     }
     _ -> panic as "Everything should already have a parent"
-  }
-}
-
-fn count_members(points: List(Point), doms: Domains) {
-  count_members_loop(points, doms, dict.new())
-}
-
-fn count_members_loop(points: List(Point), doms: Domains, acc: RootCount) {
-  case points {
-    [p1, ..rest] -> count_members_loop(rest, doms, update_count(acc, p1, doms))
-    [] -> acc
-  }
-}
-
-fn update_count(acc: RootCount, point: Point, doms: Domains) -> RootCount {
-  let #(root, _) = find(doms, point)
-  case dict.get(acc, root) {
-    Error(_) -> dict.insert(acc, root, 1)
-    Ok(cnt) -> dict.insert(acc, root, cnt + 1)
-  }
-}
-
-fn compare_dsize(a, b) {
-  case a, b {
-    #(_, x), #(_, y) -> int.compare(x, y)
   }
 }
