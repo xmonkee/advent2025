@@ -1,5 +1,6 @@
 import gary
 import gary/array
+import gleam/dict
 import gleam/int
 import gleam/list
 import gleam/option.{Some}
@@ -40,35 +41,55 @@ fn get_min_flips(machine: Machine) {
     |> array.get_size()
     |> array.create_fixed_size(0)
 
-  let assert Ok(flips) = get_min_flips_dfs(initial_joltage, machine, 0)
+  let visited = dict.new()
+
+  let assert Ok(flips) = get_min_flips_dfs(initial_joltage, machine, 0, visited)
   flips
 }
 
-fn get_min_flips_dfs(joltage: Joltage, machine: Machine, flips: Int) {
-  echo #(flips)
+fn get_min_flips_dfs(
+  joltage: Joltage,
+  machine: Machine,
+  flips: Int,
+  visited: dict.Dict(Int, Int),
+) {
+  echo visited
+  let btns_with_ids =
+    list.index_map(machine.buttons, fn(btn, idx) { #(btn, idx) })
   case
     compare_joltage(joltage, machine.joltage, array.get_size(joltage), order.Eq)
   {
     order.Eq -> Ok(flips)
     order.Gt -> Error(Nil)
     order.Lt -> {
-      try_buttons(joltage, machine.buttons, machine, flips)
+      try_buttons(joltage, btns_with_ids, machine, flips, visited)
     }
   }
 }
 
 fn try_buttons(
   joltage: Joltage,
-  buttons: List(Button),
+  btns_with_ids: List(#(Button, Int)),
   machine: Machine,
   flips: Int,
+  visited: dict.Dict(Int, Int),
 ) {
-  case buttons {
-    [btn, ..rest] ->
-      case get_min_flips_dfs(update_joltage(joltage, btn), machine, flips + 1) {
+  case btns_with_ids {
+    [#(btn, idx), ..rest] -> {
+      let assert Ok(clicks) = dict.get(visited, idx)
+      let new_visited = dict.insert(visited, idx, clicks + 1)
+      case
+        get_min_flips_dfs(
+          update_joltage(joltage, btn),
+          machine,
+          flips + 1,
+          new_visited,
+        )
+      {
         Ok(flips) -> Ok(flips)
-        Error(Nil) -> try_buttons(joltage, rest, machine, flips)
+        Error(Nil) -> try_buttons(joltage, rest, machine, flips, new_visited)
       }
+    }
     [] -> Error(Nil)
   }
 }
