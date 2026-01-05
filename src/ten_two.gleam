@@ -31,9 +31,6 @@ pub type Machine {
   Machine(lights: Lights, buttons: List(Button), joltage: Joltage)
 }
 
-type Memo =
-  dict.Dict(Machine, Result(Int, Nil))
-
 pub fn main() {
   // let input = utils.get_input(10)
   let machines =
@@ -43,20 +40,31 @@ pub fn main() {
 }
 
 fn get_min_flips(machine: Machine) {
-  get_min_flips_(machine)
+  get_min_flips_(
+    machine,
+    list.index_map(machine.buttons, fn(btn, idx) { #(idx, btn) }),
+    [],
+  )
 }
 
-fn get_min_flips_(machine: Machine) {
+fn get_min_flips_(machine: Machine, buttons, pressed) {
   case joltage_order(machine) {
     order.Lt -> Error(Nil)
     order.Eq -> Ok(0)
     order.Gt -> {
-      case machine.buttons {
+      case buttons {
         [] -> Error(Nil)
-        [btn, ..rst] -> {
-          case get_min_flips_(update_joltage(machine, btn)) {
+        [idx_btn, ..rst] -> {
+          let #(idx, btn) = idx_btn
+          case
+            get_min_flips_(
+              update_joltage(machine, btn),
+              buttons,
+              list.append(pressed, [idx]),
+            )
+          {
             Ok(n) -> Ok(n + 1)
-            Error(Nil) -> get_min_flips_(Machine(..machine, buttons: rst))
+            Error(Nil) -> get_min_flips_(machine, rst, pressed)
           }
         }
       }
