@@ -6,13 +6,17 @@ import gleam/list
 import gleam/option.{Some}
 import gleam/order
 import gleam/regexp
+import gleam/result
 import gleam/string
 import utils
 
-const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {30,50,40,70}
 [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
 [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
 "
+
+// const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {30,50,40,70}
+// "
 
 type Lights =
   gary.ErlangArray(Bool)
@@ -23,104 +27,65 @@ type Button =
 type Joltage =
   gary.ErlangArray(Int)
 
-type Machine {
+pub type Machine {
   Machine(lights: Lights, buttons: List(Button), joltage: Joltage)
 }
 
+type Memo =
+  dict.Dict(Machine, Result(Int, Nil))
+
 pub fn main() {
-  let input = utils.get_input(10)
+  // let input = utils.get_input(10)
   let machines =
     input |> string.drop_end(1) |> string.split("\n") |> list.map(parse_row)
-  echo int.sum(list.map(machines, get_min_flips))
+
+  echo list.map(machines, get_min_flips)
 }
 
 fn get_min_flips(machine: Machine) {
-  echo machine
-  let assert Ok(initial_joltage) =
-    machine.joltage
-    |> array.get_size()
-    |> array.create_fixed_size(0)
-
-  let visited = dict.new()
-
-  let assert Ok(flips) = get_min_flips_dfs(initial_joltage, machine, 0, visited)
-  flips
+  get_min_flips_(machine)
 }
 
-fn get_min_flips_dfs(
-  joltage: Joltage,
-  machine: Machine,
-  flips: Int,
-  visited: dict.Dict(Int, Int),
-) {
-  echo visited
-  let btns_with_ids =
-    list.index_map(machine.buttons, fn(btn, idx) { #(btn, idx) })
-  case
-    compare_joltage(joltage, machine.joltage, array.get_size(joltage), order.Eq)
+fn get_min_flips_(machine: Machine) {
+  case joltage_order(machine) {
+    order.Lt -> Error(Nil)
+    order.Eq -> Ok(0)
+    order.Gt -> {
+      case machine.buttons {
+        [] -> Error(Nil)
+        [btn, ..rst] -> {
+          case get_min_flips_(update_joltage(machine, btn)) {
+            Ok(n) -> Ok(n + 1)
+            Error(Nil) -> get_min_flips_(Machine(..machine, buttons: rst))
+          }
+        }
+      }
+    }
+  }
+}
+
+fn joltage_order(machine: Machine) {
+  let jl = array.to_list(machine.joltage)
   {
-    order.Eq -> Ok(flips)
-    order.Gt -> Error(Nil)
-    order.Lt -> {
-      try_buttons(joltage, btns_with_ids, machine, flips, visited)
-    }
-  }
-}
-
-fn try_buttons(
-  joltage: Joltage,
-  btns_with_ids: List(#(Button, Int)),
-  machine: Machine,
-  flips: Int,
-  visited: dict.Dict(Int, Int),
-) {
-  case btns_with_ids {
-    [#(btn, idx), ..rest] -> {
-      let assert Ok(clicks) = dict.get(visited, idx)
-      let new_visited = dict.insert(visited, idx, clicks + 1)
-      case
-        get_min_flips_dfs(
-          update_joltage(joltage, btn),
-          machine,
-          flips + 1,
-          new_visited,
-        )
-      {
-        Ok(flips) -> Ok(flips)
-        Error(Nil) -> try_buttons(joltage, rest, machine, flips, new_visited)
+    case list.any(jl, fn(x) { x < 0 }) {
+      True -> order.Lt
+      False -> {
+        case list.all(jl, fn(x) { x == 0 }) {
+          True -> order.Eq
+          False -> order.Gt
+        }
       }
     }
-    [] -> Error(Nil)
   }
 }
 
-fn compare_joltage(
-  joltage: Joltage,
-  target_joltage: Joltage,
-  n: Int,
-  acc: order.Order,
-) {
-  case n {
-    n if n > 0 -> {
-      let assert Ok(a) = array.get(joltage, n - 1)
-      let assert Ok(b) = array.get(target_joltage, n - 1)
-      case int.compare(a, b) {
-        order.Lt -> compare_joltage(joltage, target_joltage, n - 1, order.Lt)
-        order.Eq -> compare_joltage(joltage, target_joltage, n - 1, acc)
-        order.Gt -> order.Gt
-      }
-    }
-    _ -> acc
-  }
-}
-
-fn update_joltage(joltage: Joltage, button: Button) {
+fn update_joltage(machine: Machine, button: Button) {
   case button {
-    [] -> joltage
+    [] -> machine
     [pos, ..rest_switches] -> {
-      let assert Ok(cnt) = array.get(joltage, pos)
-      let assert Ok(new_joltage) = array.set(joltage, pos, cnt + 1)
-      update_joltage(new_joltage, rest_switches)
+      let assert Ok(cnt) = array.get(machine.joltage, pos)
+      let assert Ok(joltage) = array.set(machine.joltage, pos, cnt - 1)
+      update_joltage(Machine(..machine, joltage: joltage), rest_switches)
     }
   }
 }
