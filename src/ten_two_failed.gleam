@@ -2,6 +2,7 @@ import gary
 import gary/array
 import gleam/dict
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/option.{Some}
 import gleam/order
@@ -9,13 +10,10 @@ import gleam/regexp
 import gleam/string
 import utils
 
-const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {30,50,40,70}
 [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
 [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
 "
-
-// const input = "[.##.#..##.] (3,6) (0,1,2,3,4,5,7,9) (0,1,5,6,7,8,9) (1,9) (0,1,3,4,5,6,7) (0,1,2,3,4,5) (1,2,3,4,5,6,7,8) (2,3,5,7,8) (2,3,5,7,9) (0,1,2,3,4,6,9) (4,5,6,7,8) (3,6,7,8,9) {52,67,66,109,49,65,70,66,33,72}
-// "
 
 // const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {30,50,40,70}
 // "
@@ -38,67 +36,56 @@ pub fn main() {
   let machines =
     input |> string.drop_end(1) |> string.split("\n") |> list.map(parse_row)
 
-  echo int.sum(list.map(machines, get_min_flipss))
+  echo list.map(machines, get_min_flips)
 }
 
-fn get_min_flipss(machine: Machine) -> Int {
+type Pressed =
+  dict.Dict(Button, Int)
+
+fn get_min_flips(machine: Machine) {
   echo machine
-  get_min_flips(machine, button_combos(machine.buttons))
+  get_min_flips_(machine, machine.buttons, dict.new())
 }
 
-fn get_min_flips(machine: Machine, combos: List(List(Button))) -> Int {
+fn get_min_flips_(machine: Machine, buttons: List(Button), pressed: Pressed) {
+  print_pressed(pressed, machine)
   case joltage_order(machine) {
-    order.Eq -> 0
-    order.Lt -> 100_000
+    order.Lt -> Error(Nil)
+    order.Eq -> Ok(0)
     order.Gt -> {
-      case is_even(machine) {
-        True -> 2 * get_min_flips(half(machine), combos)
-        False -> {
-          utils.min(combos, fn(combo) {
-            let new_machine =
-              list.fold(combo, machine, fn(machine, combo) {
-                update_joltage(machine, combo)
-              })
-            case
-              list.all(new_machine.joltage |> array.to_list, fn(x) {
-                x % 2 == 0
-              })
-            {
-              False -> 100_000
-              True -> get_min_flips(new_machine, combos) + list.length(combo)
-            }
-          })
+      case buttons {
+        [] -> Error(Nil)
+        [btn, ..rst] -> {
+          case
+            get_min_flips_(
+              update_joltage(machine, btn),
+              buttons,
+              dict.upsert(pressed, btn, fn(presses) {
+                option.unwrap(presses, 0) + 1
+              }),
+            )
+          {
+            Ok(n) -> Ok(n + 1)
+            Error(Nil) -> get_min_flips_(machine, rst, pressed)
+          }
         }
       }
     }
   }
 }
 
-fn is_even(machine: Machine) {
-  list.all(machine.joltage |> array.to_list, fn(x) { x % 2 == 0 })
-}
-
-fn half(machine: Machine) {
-  Machine(..machine, joltage: array.map(machine.joltage, fn(_, j) { j / 2 }))
-}
-
-fn button_combos(buttons: List(a)) -> List(List(a)) {
-  button_combos_(list.reverse(buttons), [])
-}
-
-fn button_combos_(buttons: List(a), acc: List(List(a))) {
-  case buttons {
-    [] -> acc
-    [fst, ..rst] ->
-      button_combos_(rst, [[fst], ..list.append(acc, append_all(acc, fst))])
-  }
-}
-
-fn append_all(button_combos: List(List(a)), btn: a) {
-  case button_combos {
-    [] -> []
-    [fst, ..rst] -> [[btn, ..fst], ..append_all(rst, btn)]
-  }
+fn print_pressed(pressed: Pressed, machine: Machine) {
+  machine.buttons
+  |> list.index_map(fn(btn, idx) {
+    let cnt = dict.get(pressed, btn)
+    case cnt {
+      Error(_) -> Nil
+      Ok(cnt) -> {
+        io.print(int.to_string(idx) <> "-" <> int.to_string(cnt) <> " / ")
+      }
+    }
+  })
+  io.println("")
 }
 
 fn joltage_order(machine: Machine) {
