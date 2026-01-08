@@ -64,9 +64,13 @@ pub fn nillify_error(r) {
   result.map_error(r, fn(_) { Nil })
 }
 
-pub fn min(lst: List(a), mapper: fn(a) -> Int) {
+pub fn min(lst: List(Int)) {
   case lst {
-    [] -> 10_000_000
-    [fst, ..rst] -> int.min(mapper(fst), min(rst, mapper))
+    [] -> Error(Nil)
+    [only] -> Ok(only)
+    [fst, ..rst] -> {
+      use rst_min <- result.map(min(rst))
+      int.min(fst, rst_min)
+    }
   }
 }

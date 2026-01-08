@@ -5,7 +5,9 @@ import gleam/int
 import gleam/list
 import gleam/option.{Some}
 import gleam/order
+import gleam/pair
 import gleam/regexp
+import gleam/result
 import gleam/string
 import utils
 
@@ -43,33 +45,45 @@ pub fn main() {
 
 fn get_min_flipss(machine: Machine) -> Int {
   echo machine
-  get_min_flips(machine, button_combos(machine.buttons))
+  utils.unwrap(get_min_flips(machine))
 }
 
-fn get_min_flips(machine: Machine, combos: List(List(Button))) -> Int {
+type FlipsMachinePair {
+  FP(flips: Int, machine: Machine)
+}
+
+fn get_min_flips(machine: Machine) -> Result(Int, Nil) {
   case joltage_order(machine) {
-    order.Eq -> 0
-    order.Lt -> 100_000
+    order.Eq -> Ok(0)
+    order.Lt -> Error(Nil)
     order.Gt -> {
       case is_even(machine) {
-        True -> 2 * get_min_flips(half(machine), combos)
-        False -> {
-          utils.min(combos, fn(combo) {
-            let new_machine =
-              list.fold(combo, machine, fn(machine, combo) {
-                update_joltage(machine, combo)
-              })
-            case
-              list.all(new_machine.joltage |> array.to_list, fn(x) {
-                x % 2 == 0
-              })
-            {
-              False -> 100_000
-              True -> get_min_flips(new_machine, combos) + list.length(combo)
-            }
+        True ->
+          result.map(get_min_flips(half(machine)), fn(flips) { flips * 2 })
+        False ->
+          machine.buttons
+          |> subsets
+          |> list.map(fn(combo) {
+            FP(list.length(combo), list.fold(combo, machine, update_joltage))
           })
-        }
+          |> list.filter(fn(fm) { is_even(fm.machine) })
+          |> list.filter_map(fn(fm) {
+            use flips <- result.map(get_min_flips(fm.machine))
+            flips + fm.flips
+          })
+          |> utils.min
       }
+    }
+  }
+}
+
+fn subsets(lst: List(a)) -> List(List(a)) {
+  case lst {
+    [] -> []
+    [fst, ..rst] -> {
+      let rst_subs = subsets(rst)
+      let appended = rst_subs |> list.map(fn(sub) { [fst, ..sub] })
+      [[fst], ..list.append(rst_subs, appended)]
     }
   }
 }
@@ -80,25 +94,6 @@ fn is_even(machine: Machine) {
 
 fn half(machine: Machine) {
   Machine(..machine, joltage: array.map(machine.joltage, fn(_, j) { j / 2 }))
-}
-
-fn button_combos(buttons: List(a)) -> List(List(a)) {
-  button_combos_(list.reverse(buttons), [])
-}
-
-fn button_combos_(buttons: List(a), acc: List(List(a))) {
-  case buttons {
-    [] -> acc
-    [fst, ..rst] ->
-      button_combos_(rst, [[fst], ..list.append(acc, append_all(acc, fst))])
-  }
-}
-
-fn append_all(button_combos: List(List(a)), btn: a) {
-  case button_combos {
-    [] -> []
-    [fst, ..rst] -> [[btn, ..fst], ..append_all(rst, btn)]
-  }
 }
 
 fn joltage_order(machine: Machine) {
