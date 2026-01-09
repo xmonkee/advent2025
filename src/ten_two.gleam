@@ -1,20 +1,19 @@
 import gary
 import gary/array
-import gleam/dict
 import gleam/int
 import gleam/list
 import gleam/option.{Some}
 import gleam/order
-import gleam/pair
 import gleam/regexp
 import gleam/result
 import gleam/string
+import rememo/memo
 import utils
 
-const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
-"
+// const input = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+// [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+// [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
+// "
 
 // const input = "[.##.#..##.] (3,6) (0,1,2,3,4,5,7,9) (0,1,5,6,7,8,9) (1,9) (0,1,3,4,5,6,7) (0,1,2,3,4,5) (1,2,3,4,5,6,7,8) (2,3,5,7,8) (2,3,5,7,9) (0,1,2,3,4,6,9) (4,5,6,7,8) (3,6,7,8,9) {52,67,66,109,49,65,70,66,33,72}
 // "
@@ -44,22 +43,27 @@ pub fn main() {
 }
 
 fn get_min_flipss(machine: Machine) -> Int {
+  use cache <- memo.create()
   echo machine
-  utils.unwrap(get_min_flips(machine))
+  utils.unwrap(get_min_flips(machine, cache))
 }
 
 type FlipsMachinePair {
   FP(flips: Int, machine: Machine)
 }
 
-fn get_min_flips(machine: Machine) -> Result(Int, Nil) {
+fn get_min_flips(machine: Machine, cache) -> Result(Int, Nil) {
+  use <- memo.memoize(cache, machine)
   case joltage_order(machine) {
     order.Eq -> Ok(0)
     order.Lt -> Error(Nil)
     order.Gt -> {
       case is_even(machine) {
         True ->
-          result.map(get_min_flips(half(machine)), fn(flips) { flips * 2 })
+          machine
+          |> half
+          |> get_min_flips(cache)
+          |> result.map(fn(flips) { flips * 2 })
         False ->
           machine.buttons
           |> subsets
@@ -68,8 +72,8 @@ fn get_min_flips(machine: Machine) -> Result(Int, Nil) {
           })
           |> list.filter(fn(fm) { is_even(fm.machine) })
           |> list.filter_map(fn(fm) {
-            use flips <- result.map(get_min_flips(fm.machine))
-            flips + fm.flips
+            use flips <- result.map(get_min_flips(fm.machine, cache))
+            fm.flips + flips
           })
           |> utils.min
       }
