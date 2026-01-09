@@ -5,18 +5,6 @@ import gleam/string
 import rememo/memo
 import utils
 
-const input = "aaa: you hhh
-you: bbb ccc
-bbb: ddd eee
-ccc: ddd eee fff
-ddd: ggg
-eee: out
-fff: out
-ggg: out
-hhh: ccc fff iii
-iii: out
-"
-
 pub fn main() {
   let input = utils.get_input(11)
   let pairs = input |> string.drop_end(1) |> string.split("\n")
